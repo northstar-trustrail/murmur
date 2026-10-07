@@ -8,6 +8,12 @@ Staff prove *that* they work somewhere without revealing *who* they are. Each pe
 
 ![Operator view: the case inbox next to the public ledger](docs/screenshot-operator.png)
 
+### Evaluate in five minutes
+
+1. Open the **[live demo](https://northstar-trustrail.github.io/murmur/)** and press **▶ Guided story**. Watch the *Public ledger* and *Transactions* panels on the right.
+2. Read **[`contract/src/murmur.compact`](contract/src/murmur.compact)**: one file, about 180 lines, every `disclose()` deliberate.
+3. `npm install && npm test`: 13 tests run against the compiled contract, including dishonest-client tests.
+
 ---
 
 ## The problem
@@ -161,6 +167,10 @@ Being upfront about what this is and isn't yet:
 * **Operator trust.** The operator could enrol fake members. `rosterSize` is public so employees and auditors can compare it with headcount; a roadmap item is multi-party enrolment (e.g. HR + works council co-sign).
 * **No revocation yet.** `HistoricMerkleTree` accepts past roots, so departed staff keep membership. Planned: epoch-based roster rotation, where each round only accepts roots from the current epoch.
 * **Small-group anonymity.** Disclosing site *and* role at a tiny site can identify someone. Planned: the UI warns when a disclosed attribute set covers fewer than *k* enrolled members (the operator can publish per-site counts).
+
+## Built with Midnight
+
+Murmur is built on the [Midnight Network](https://midnight.network): the [Compact](https://docs.midnight.network/compact) language and compiler, and `@midnight-ntwrk/compact-runtime`. The Midnight docs' [Merkle-tree authentication example](https://docs.midnight.network/concepts/how-midnight-works/keeping-data-private) inspired the membership-proof pattern.
 
 ## License
 
