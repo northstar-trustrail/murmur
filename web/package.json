@@ -1,0 +1,21 @@
+{
+  "name": "@murmur/web",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "license": "Apache-2.0",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@midnight-ntwrk/compact-runtime": "0.20.0",
+    "@murmur/contract": "*"
+  },
+  "devDependencies": {
+    "vite": "^7.1.0",
+    "vite-plugin-wasm": "^3.5.0",
+    "typescript": "^5.9.3"
+  }
+}
