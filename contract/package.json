@@ -6,10 +6,10 @@
   "license": "Apache-2.0",
   "main": "./src/index.ts",
   "scripts": {
-    "compact": "compactc --skip-zk src/murmur.compact src/managed/murmur",
-    "compact:zk": "compactc src/murmur.compact src/managed/murmur",
+    "compact": "${COMPACTC:-compact compile} --skip-zk src/murmur.compact src/managed/murmur",
+    "compact:zk": "${COMPACTC:-compact compile} src/murmur.compact src/managed/murmur",
     "test": "vitest run",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc -p ."
   },
   "dependencies": {
     "@midnight-ntwrk/compact-runtime": "0.20.0"

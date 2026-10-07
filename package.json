@@ -3,10 +3,19 @@
   "private": true,
   "type": "module",
   "license": "Apache-2.0",
-  "workspaces": ["contract", "web"],
+  "workspaces": [
+    "contract",
+    "web"
+  ],
   "scripts": {
     "compact": "npm run compact -w contract",
+    "compact:zk": "npm run compact:zk -w contract",
     "test": "npm test -w contract",
+    "typecheck": "npm run typecheck -w contract",
+    "dev": "npm run dev -w web",
     "build": "npm run build -w web"
+  },
+  "engines": {
+    "node": ">=22"
   }
 }
