@@ -1,0 +1,179 @@
+// Murmur: verified, anonymous workplace reports on Midnight.
+// SPDX-License-Identifier: Apache-2.0
+//
+// An organisation enrols members by inserting *hiding commitments* into a Merkle tree. A member
+// later files a report by proving, in zero knowledge, that they hold the secret behind one of
+// those commitments, without revealing which one. They choose which credential attributes to
+// disclose (site, role, both or neither). A per-round nullifier limits each member to one report
+// per round, other members can corroborate anonymously (once each, never their own report), and
+// the reporter can later prove authorship to a party of their choice.
+
+pragma language_version >= 0.23;
+
+import CompactStandardLibrary;
+
+export enum Status { RECEIVED, INVESTIGATING, RESOLVED, DISMISSED }
+
+// What a member keeps on their own device. Never leaves the private state.
+export struct Credential {
+  secret: Bytes<32>;
+  site: Uint<16>;
+  role: Uint<8>;
+}
+
+export struct Report {
+  round: Uint<64>;
+  category: Uint<8>;
+  severity: Uint<8>;
+  siteShown: Boolean;
+  site: Uint<16>;
+  roleShown: Boolean;
+  role: Uint<8>;
+  contentHash: Bytes<32>;
+  authorTag: Bytes<32>;
+  corroborations: Uint<32>;
+  status: Status;
+  claimed: Boolean;
+  claimedBy: Bytes<32>;
+}
+
+// ------------------------------------------------------------------ public ledger
+export sealed ledger operator: Bytes<32>;
+export sealed ledger orgName: Opaque<"string">;
+export ledger round: Counter;
+export ledger roster: HistoricMerkleTree<10, Bytes<32>>;
+export ledger rosterSize: Counter;
+export ledger nullifiers: Set<Bytes<32>>;
+export ledger reports: Map<Uint<64>, Report>;
+export ledger reportCount: Counter;
+
+// ------------------------------------------------------------------ private inputs
+witness credential(): Credential;
+witness rosterPath(leaf: Bytes<32>): MerkleTreePath<10, Bytes<32>>;
+witness operatorSecret(): Bytes<32>;
+
+constructor(name: Opaque<"string">) {
+  operator = disclose(operatorKey(operatorSecret()));
+  orgName = disclose(name);
+  round.increment(1);
+}
+
+// ------------------------------------------------------------------ operator circuits
+// Enrols a member commitment. The commitment hides the member secret, so the roster reveals
+// only how many members exist.
+export circuit enroll(leaf: Bytes<32>): [] {
+  assertOperator();
+  roster.insert(disclose(leaf));
+  rosterSize.increment(1);
+}
+
+export circuit advanceRound(): [] {
+  assertOperator();
+  round.increment(1);
+}
+
+export circuit setStatus(id: Uint<64>, status: Status): [] {
+  assertOperator();
+  const key = disclose(id);
+  assert(reports.member(key), "no such report");
+  const r = reports.lookup(key);
+  reports.insert(key, Report {
+    r.round, r.category, r.severity, r.siteShown, r.site, r.roleShown, r.role, r.contentHash,
+    r.authorTag, r.corroborations, disclose(status), r.claimed, r.claimedBy
+  });
+}
+
+// ------------------------------------------------------------------ member circuits
+// Files a report. Proves roster membership without revealing the leaf, burns this round's
+// nullifier, and discloses only the attributes the member opts into.
+export circuit fileReport(category: Uint<8>, severity: Uint<8>, contentHash: Bytes<32>,
+                          showSite: Boolean, showRole: Boolean): Uint<64> {
+  const c = credential();
+  proveMembership(c);
+  assert(disclose(severity) >= 1 && disclose(severity) <= 5, "severity must be 1..5");
+
+  const currentRound = round as Uint<64>;
+  const nul = roundNullifier(c.secret, currentRound);
+  assert(!nullifiers.member(disclose(nul)), "already reported this round");
+  nullifiers.insert(disclose(nul));
+
+  const id = reportCount as Uint<64>;
+  const site = disclose(showSite) ? disclose(c.site) : 0 as Uint<16>;
+  const role = disclose(showRole) ? disclose(c.role) : 0 as Uint<8>;
+  reports.insert(id, Report {
+    currentRound, disclose(category), disclose(severity), disclose(showSite), site,
+    disclose(showRole), role, disclose(contentHash), disclose(authorTag(c.secret, id)),
+    0, Status.RECEIVED, false, default<Bytes<32>>
+  });
+  reportCount.increment(1);
+  return id;
+}
+
+// Another member vouches for a report. One corroboration per member per report, and the author
+// cannot corroborate their own report, all without revealing who is corroborating.
+export circuit corroborate(id: Uint<64>): [] {
+  const key = disclose(id);
+  assert(reports.member(key), "no such report");
+  const c = credential();
+  proveMembership(c);
+  const r = reports.lookup(key);
+  assert(disclose(authorTag(c.secret, key) != r.authorTag), "authors cannot corroborate their own report");
+  const nul = corroborationNullifier(c.secret, key);
+  assert(!nullifiers.member(disclose(nul)), "already corroborated");
+  nullifiers.insert(disclose(nul));
+  reports.insert(key, Report {
+    r.round, r.category, r.severity, r.siteShown, r.site, r.roleShown, r.role, r.contentHash,
+    r.authorTag, (r.corroborations + 1) as Uint<32>, r.status, r.claimed, r.claimedBy
+  });
+}
+
+// The author links the report to a key of their choosing (for example a lawyer's or a
+// whistleblower-protection office's), at a moment of their choosing. Until then nothing
+// connects the report to anyone.
+export circuit claimAuthorship(id: Uint<64>, claimant: Bytes<32>): [] {
+  const key = disclose(id);
+  assert(reports.member(key), "no such report");
+  const c = credential();
+  const r = reports.lookup(key);
+  assert(!r.claimed, "already claimed");
+  assert(disclose(authorTag(c.secret, key) == r.authorTag), "not the author");
+  reports.insert(key, Report {
+    r.round, r.category, r.severity, r.siteShown, r.site, r.roleShown, r.role, r.contentHash,
+    r.authorTag, r.corroborations, r.status, true, disclose(claimant)
+  });
+}
+
+// ------------------------------------------------------------------ pure helpers
+// The commitment a member hands to the operator at enrolment.
+export pure circuit memberLeaf(c: Credential): Bytes<32> {
+  return persistentHash<Vector<4, Bytes<32>>>([
+    pad(32, "murmur:member:v1"), c.secret, c.site as Field as Bytes<32>, c.role as Field as Bytes<32>
+  ]);
+}
+
+export pure circuit operatorKey(sk: Bytes<32>): Bytes<32> {
+  return persistentHash<Vector<2, Bytes<32>>>([pad(32, "murmur:operator:v1"), sk]);
+}
+
+pure circuit roundNullifier(sk: Bytes<32>, r: Uint<64>): Bytes<32> {
+  return persistentHash<Vector<3, Bytes<32>>>([pad(32, "murmur:round-nul:v1"), sk, r as Field as Bytes<32>]);
+}
+
+pure circuit corroborationNullifier(sk: Bytes<32>, id: Uint<64>): Bytes<32> {
+  return persistentHash<Vector<3, Bytes<32>>>([pad(32, "murmur:corr-nul:v1"), sk, id as Field as Bytes<32>]);
+}
+
+pure circuit authorTag(sk: Bytes<32>, id: Uint<64>): Bytes<32> {
+  return persistentHash<Vector<3, Bytes<32>>>([pad(32, "murmur:author:v1"), sk, id as Field as Bytes<32>]);
+}
+
+circuit proveMembership(c: Credential): [] {
+  const leaf = memberLeaf(c);
+  const path = rosterPath(leaf);
+  assert(path.leaf == leaf, "path does not match credential");
+  assert(roster.checkRoot(disclose(merkleTreePathRoot<10, Bytes<32>>(path))), "not on the roster");
+}
+
+circuit assertOperator(): [] {
+  assert(operator == operatorKey(operatorSecret()), "operator only");
+}

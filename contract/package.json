@@ -1,0 +1,21 @@
+{
+  "name": "@murmur/contract",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "license": "Apache-2.0",
+  "main": "./src/index.ts",
+  "scripts": {
+    "compact": "compactc --skip-zk src/murmur.compact src/managed/murmur",
+    "compact:zk": "compactc src/murmur.compact src/managed/murmur",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@midnight-ntwrk/compact-runtime": "0.20.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.3",
+    "vitest": "^4.1.0"
+  }
+}

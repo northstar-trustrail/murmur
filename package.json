@@ -1,0 +1,12 @@
+{
+  "name": "murmur",
+  "private": true,
+  "type": "module",
+  "license": "Apache-2.0",
+  "workspaces": ["contract", "web"],
+  "scripts": {
+    "compact": "npm run compact -w contract",
+    "test": "npm test -w contract",
+    "build": "npm run build -w web"
+  }
+}
