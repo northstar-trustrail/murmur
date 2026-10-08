@@ -87,7 +87,7 @@ select, textarea { display: block; width: 100%; margin-top: 4px; background: #0d
 .caption { position: fixed; left: 50%; bottom: 22px; transform: translateX(-50%); width: min(980px, 92vw); background: rgba(17,24,39,.96); border: 1px solid #6d28d9; border-radius: 14px; padding: 14px 18px; display: flex; gap: 14px; align-items: center; font-size: 17px; line-height: 1.4; box-shadow: 0 20px 60px -20px #000; z-index: 10; }
 .cap-step { color: var(--accent); font-weight: 700; font-size: 13px; white-space: nowrap; }
 .hidden { display: none !important; }
-.toast { position: fixed; right: 22px; top: 76px; padding: 10px 14px; border-radius: 10px; z-index: 11; font-weight: 600; }
+.toast { position: fixed; right: 22px; top: 128px; padding: 10px 14px; border-radius: 10px; z-index: 11; font-weight: 600; }
 .toast.ok { background: #064e3b; border: 1px solid var(--ok); }
 .toast.bad { background: #4c0519; border: 1px solid var(--bad); }
 .foot { text-align: center; color: var(--mute); font-size: 12px; padding: 0 20px 24px; }
